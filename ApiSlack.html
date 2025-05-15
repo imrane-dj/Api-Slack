@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Nettoyage d'un Slack</title>
+    <link rel="stylesheet" href="style.css">
+   
+</head>
+<body>
+<h1>Nettoyage des fichiers que contient le Slack</h1>
+<div id="info">
+    Cela va permettre de supprimer tous les fichiers présents sur le Slack.<br>
+</div>
+
+<h3>Récupérer le token test pour l'Api Slack</h2>
+L'URl <a href="https://api.slack.com/docs/oauth-test-tokens" target="_blank">https://api.slack.com/docs/oauth-test-tokens</a> va permettre de récupérer un token test pour l'Api Slack.
+
+<h3>Récupérer la route du token et procéder à la suppression des fichiers</h2>
+Insérer la route du token ici:<br>
+<input type="text" id="token" name="token" placeholder="Token de l'Api Slack" size="70" />
+<input type="button" id="executer" name="executer" value="Exécuter" />
+
+<h3>Résultat</h2>
+<div id="resultat"></div>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<script>
+    var token = "";
+    var files = [];
+    var page = 1;
+    var pageCount = 1;
+    function divlog(text, linebreak) {
+        if (linebreak === undefined)
+            linebreak = true;   // default value
+        $("#resultat").append(text);
+        if (linebreak === true)
+            $("#resultat").append("<br>");
+    }
+    function getFiles() {
+        var requestUrl = "https://slack.com/api/files.list";
+        var params = {
+            "token": token,            
+            "count": 100,
+            "page": page,
+            "file": files
+           
+        };
+        console.log(params);
+        divlog("Consultation de la liste de tous les fichiers présents sur le slack ... ", false);
+        var jqxhr = $.get(requestUrl, params)
+        .done(function(data) {
+            divlog(files);
+            if (data.ok === true) {
+                pageCount = data.paging.pages;
+                files = files.concat(data.files);
+                if (page < pageCount) {
+                    divlog("Response is paged. Repeating to fetch next page.");
+                    page = page + 1;
+                    getFiles();
+                }
+                else {
+                    deleteFiles();
+                }
+            }
+            else {
+                divlog("ERREUR <strong>" + data.error + "</strong>");
+            }
+        })
+        .fail(function() {
+            divlog("<strong>XHR to URL " + requestUrl + " FAILED</strong>");
+        });
+    }
+
+    function deleteFiles() {
+        var requestUrl = "https://slack.com/api/files.delete";
+        divlog("<br>Now request deletion of each file. Will succeed only for files shared by you.<br>");
+        // run through files array
+        for (var i = 0; i < files.length; i++) {
+            (function(i) {  // closure
+                var params = {
+                    "token": token,
+                    "file": files[i].id
+                };
+                var spanHTML = '<span id="file' + i + '">File ' + parseInt(i+1) + ' of ' + files.length + ': </span>';
+                var spanId = "#file" + i;
+                divlog(spanHTML);
+                var jqxhr = $.get(requestUrl, params)
+                .done(function(data) {
+                    if (data.ok === true) {
+                        $(spanId).append("<strong>Success</strong>");
+                    }
+                    else {
+                        $(spanId).append("failed (<strong>" + data.error + "</strong>)");
+                    }
+                })
+                .fail(function() {
+                    $(spanId).append("<strong>XHR to URL " + requestUrl + " FAILED</strong>");
+                });
+            })(i);
+        } // for loop
+    }
+
+    function deleteMessage() {
+
+    }
+    
+    $("#executer").click(function() {
+        token = $("#token").val();
+        getFiles();
+    });
+</script>
+</body>
+</html>
